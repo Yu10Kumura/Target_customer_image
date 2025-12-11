@@ -4,7 +4,8 @@ TSV出力、表示用HTML生成など
 """
 import csv
 from typing import List, Dict, Any
-from io import StringIO
+from io import StringIO, BytesIO
+import pandas as pd
 from config import Config
 from utils.logger import logger
 
@@ -30,6 +31,25 @@ def matrix_to_tsv(matrix: List[List[str]]) -> str:
     
     logger.info(f"マトリクスをTSV形式に変換しました（{len(matrix)}行）")
     return tsv_content
+
+
+def matrix_to_excel_bytes(matrix: List[List[str]]) -> bytes:
+    """マトリクスデータをExcelファイルバイト列に変換"""
+    if not matrix:
+        logger.warning("空のマトリクスをExcelに変換しようとしました")
+        df = pd.DataFrame()
+    else:
+        # 先頭行をヘッダーとしてDataFrame化
+        df = pd.DataFrame(matrix[1:], columns=matrix[0])
+
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="matrix")
+
+    excel_bytes = output.getvalue()
+    output.close()
+    logger.info(f"マトリクスをExcel形式に変換しました（{len(matrix)}行）")
+    return excel_bytes
 
 
 def matrix_to_html(matrix: List[List[str]], highlight_symbols: bool = True) -> str:

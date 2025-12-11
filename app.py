@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from config import Config
 from utils.llm_client import LLMClient
-from utils.formatters import matrix_to_tsv, matrix_to_html, personas_to_markdown, axes_to_markdown
+from utils.formatters import matrix_to_tsv, matrix_to_html, personas_to_markdown, axes_to_markdown, matrix_to_excel_bytes
 from utils.logger import logger
 from core.step1_job_analysis import Step1JobAnalyzer
 from core.step2_persona_generation import Step2PersonaGenerator
@@ -257,6 +257,14 @@ def render_result_section(components):
                 data=tsv_content,
                 file_name="target_matrix.tsv",
                 mime="text/tab-separated-values",
+                use_container_width=True
+            )
+            excel_bytes = matrix_to_excel_bytes(st.session_state.matrix)
+            st.download_button(
+                label="📥 Excelファイルをダウンロード",
+                data=excel_bytes,
+                file_name="target_matrix.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
     
