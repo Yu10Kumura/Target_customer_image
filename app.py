@@ -10,6 +10,7 @@ from config import Config
 from utils.llm_client import LLMClient
 from utils.formatters import matrix_to_tsv, matrix_to_html, personas_to_markdown, axes_to_markdown, matrix_to_excel_bytes
 from utils.logger import logger
+from utils.matrix_sync import sync_matrix_companies_with_personas
 from core.step1_job_analysis import Step1JobAnalyzer
 from core.step2_persona_generation import Step2PersonaGenerator
 from core.step3_axes_generation import Step3AxesGenerator
@@ -331,7 +332,7 @@ def render_modification_tab(components):
     # 修正モード選択
     mode = st.radio(
         "修正モード",
-        ("🧠 しっかり修正（表と論点も再計算）", "⏱ かんたん修正（表と論点はそのまま）"),
+        ("🧠 しっかり修正（表と論点も再計算）", "⏱ 在籍企業イメージ修正（表と論点はそのまま）"),
         horizontal=True,
         index=0,
     )
@@ -355,6 +356,15 @@ def render_modification_tab(components):
             st.warning("修正内容を入力してください")
         else:
             try:
+                # 直前と全く同じ修正依頼が連続した場合はスキップ
+                last_request = (
+                    st.session_state.modification_history[-1]['request']
+                    if st.session_state.modification_history else None
+                )
+                if modification_request == last_request:
+                    st.warning("同じ内容の修正依頼が直前にも実行されているため、今回分はスキップしました。")
+                    return
+
                 with st.spinner("修正中..."):
                     current_data = {
                         'personas': st.session_state.personas,
@@ -418,7 +428,12 @@ def render_modification_tab(components):
                             recalc_status.error("表の再計算に失敗しました。時間をおいて再実行してください。")
                             st.warning(f"⚠️ 表の再計算に失敗しました: {str(e)}")
                     else:
-                        st.info("⏱ かんたん修正モードのため、マトリクスと論点は再計算していません。")
+                        # 在籍企業イメージ列だけペルソナのcompaniesと同期
+                        st.session_state.matrix = sync_matrix_companies_with_personas(
+                            st.session_state.matrix,
+                            st.session_state.personas,
+                        )
+                        st.info("⏱ かんたん修正: 在籍企業イメージ（ペルソナ・表）を更新しました。評価セルは再計算していません。")
                     
                     # 修正履歴に追加
                     st.session_state.modification_history.append({
