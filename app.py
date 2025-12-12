@@ -250,7 +250,7 @@ def render_result_section(components):
     # TSV出力ボタン
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("✅ OK - TSV出力", type="primary", use_container_width=True):
+        if st.button("✅ OK - TSV/エクセル出力", type="primary", use_container_width=True):
             tsv_content = matrix_to_tsv(st.session_state.matrix)
             st.download_button(
                 label="📥 TSVファイルをダウンロード",
@@ -327,6 +327,14 @@ def render_modification_tab(components):
     """修正依頼タブ"""
     st.markdown("#### 修正依頼")
     st.markdown("自然言語で修正内容を指示してください。")
+
+    # 修正モード選択
+    mode = st.radio(
+        "修正モード",
+        ("🧠 しっかり修正（表と論点も再計算）", "⏱ かんたん修正（表と論点はそのまま）"),
+        horizontal=True,
+        index=0,
+    )
     
     # 修正履歴表示
     if st.session_state.modification_history:
@@ -338,7 +346,7 @@ def render_modification_tab(components):
     
     modification_request = st.text_area(
         "修正内容を入力",
-        placeholder="例: P1の業界を「半導体製造装置業界」に変更してください",
+        placeholder="例: 在籍企業イメージの社格を少し落として、中堅企業に変更してください",
         height=100
     )
     
@@ -378,36 +386,39 @@ def render_modification_tab(components):
                     st.session_state.discussion_points = result['modified_data'].get('discussion_points', st.session_state.discussion_points)
 
                     # 修正内容を表へ反映（再計算）
-                    recalc_status = st.empty()
-                    try:
-                        recalc_status.info("STEP4: マトリクスを再評価しています…")
-                        st.session_state.matrix = components['step4'].evaluate_matrix(
-                            st.session_state.personas,
-                            st.session_state.axes,
-                            st.session_state.step1_result,
-                            st.session_state.job_description
-                        )
-                        recalc_status.info("STEP4.5: 品質チェックを実行中…")
-                        review_result = components['step4_5'].review(
-                            st.session_state.matrix,
-                            st.session_state.job_description,
-                            st.session_state.personas,
-                            st.session_state.axes
-                        )
-                        if review_result.get('has_issues', False):
-                            st.session_state.matrix = components['step4_5'].apply_fixes(st.session_state.matrix, review_result)
-                        recalc_status.info("STEP5: すり合わせ論点を更新中…")
-                        st.session_state.discussion_points = components['step5'].extract_discussion_points(
-                            st.session_state.matrix,
-                            st.session_state.job_description,
-                            st.session_state.personas,
-                            st.session_state.axes
-                        )
-                        st.session_state.matrix_updated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        recalc_status.success("再計算が完了しました")
-                    except Exception as e:
-                        recalc_status.error("表の再計算に失敗しました。時間をおいて再実行してください。")
-                        st.warning(f"⚠️ 表の再計算に失敗しました: {str(e)}")
+                    if "しっかり修正" in mode:
+                        recalc_status = st.empty()
+                        try:
+                            recalc_status.info("STEP4: マトリクスを再評価しています…")
+                            st.session_state.matrix = components['step4'].evaluate_matrix(
+                                st.session_state.personas,
+                                st.session_state.axes,
+                                st.session_state.step1_result,
+                                st.session_state.job_description
+                            )
+                            recalc_status.info("STEP4.5: 品質チェックを実行中…")
+                            review_result = components['step4_5'].review(
+                                st.session_state.matrix,
+                                st.session_state.job_description,
+                                st.session_state.personas,
+                                st.session_state.axes
+                            )
+                            if review_result.get('has_issues', False):
+                                st.session_state.matrix = components['step4_5'].apply_fixes(st.session_state.matrix, review_result)
+                            recalc_status.info("STEP5: すり合わせ論点を更新中…")
+                            st.session_state.discussion_points = components['step5'].extract_discussion_points(
+                                st.session_state.matrix,
+                                st.session_state.job_description,
+                                st.session_state.personas,
+                                st.session_state.axes
+                            )
+                            st.session_state.matrix_updated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            recalc_status.success("再計算が完了しました")
+                        except Exception as e:
+                            recalc_status.error("表の再計算に失敗しました。時間をおいて再実行してください。")
+                            st.warning(f"⚠️ 表の再計算に失敗しました: {str(e)}")
+                    else:
+                        st.info("⏱ かんたん修正モードのため、マトリクスと論点は再計算していません。")
                     
                     # 修正履歴に追加
                     st.session_state.modification_history.append({
